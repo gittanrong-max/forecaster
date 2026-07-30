@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -41,25 +42,26 @@ def parse_monthly_data(raw_text: str) -> pd.DataFrame:
 
 def generate_forecast(df: pd.DataFrame) -> List[Tuple[str, float]]:
     values = df["value"].astype(float).to_list()
-    if len(values) < 2:
-        raise ValueError("Please enter at least 2 data points.")
+    if len(values) < 3:
+        raise ValueError("Please enter at least 3 data points.")
 
-    changes = [values[i] - values[i - 1] for i in range(1, len(values))]
-    average_change = sum(changes) / len(changes) if changes else 0.0
+    recent_values = values[-3:]
+    average_recent = sum(recent_values) / len(recent_values)
 
     predictions: List[Tuple[str, float]] = []
-    last_value = values[-1]
     for offset in range(1, 4):
-        next_value = last_value + (average_change * offset)
         next_month = df["date"].iloc[-1] + pd.DateOffset(months=offset)
-        predictions.append((next_month.strftime("%Y-%m"), round(next_value, 2)))
+        predictions.append((next_month.strftime("%Y-%m"), round(average_recent, 2)))
 
     return predictions
 
 
 def render_app() -> None:
-    st.title("NEX")
-    st.subheader("Forecast seasonal inventory, call volumes, service requests and more!")
+    st.markdown(
+        "<h1 style='color: #38bdf8; font-size: 3rem; font-weight: 700;'>NEX</h1>",
+        unsafe_allow_html=True,
+    )
+    st.subheader("Forecast seasonal inventory, call volumes, service requests, and more with confidence.")
 
     input_text = st.text_area(
         label="",
@@ -89,13 +91,39 @@ def render_app() -> None:
             forecast_df = pd.DataFrame(forecast_rows, columns=["Month", "Forecast"])
             st.dataframe(forecast_df, use_container_width=True)
 
-            chart_df = pd.DataFrame(
+            historical_df = pd.DataFrame(
                 {
                     "Month": [item.strftime("%Y-%m") for item in df["date"]],
-                    "Observed": df["value"].astype(float),
+                    "Value": df["value"].astype(float),
+                    "Series": "Observed",
                 }
             )
-            st.line_chart(chart_df.set_index("Month"))
+            forecast_df = pd.DataFrame(
+                {
+                    "Month": [month for month, _ in forecast_rows],
+                    "Value": [value for _, value in forecast_rows],
+                }
+            )
+            connected_forecast_df = pd.concat([historical_df.tail(1), forecast_df], ignore_index=True)
+
+            st.subheader("Data trend")
+            observed_chart = (
+                alt.Chart(historical_df)
+                .mark_line(color="#14b8a6", strokeWidth=3)
+                .encode(
+                    x=alt.X("Month:N", title="Month"),
+                    y=alt.Y("Value:Q", title="Value"),
+                )
+            )
+            forecast_chart = (
+                alt.Chart(connected_forecast_df)
+                .mark_line(color="#3b82f6", strokeWidth=3, strokeDash=[6, 4])
+                .encode(
+                    x=alt.X("Month:N", title="Month"),
+                    y=alt.Y("Value:Q", title="Value"),
+                )
+            )
+            st.altair_chart(observed_chart + forecast_chart, use_container_width=True)
         except ValueError as exc:
             st.error(str(exc))
 
