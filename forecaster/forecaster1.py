@@ -6,11 +6,6 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-try:
-    from statsmodels.tsa.holtwinters.model import ExponentialSmoothing
-except ImportError:  # pragma: no cover - fallback for older statsmodels versions
-    from statsmodels.tsa.holtwinters import ExponentialSmoothing
-
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 try:
@@ -67,14 +62,6 @@ def generate_forecasts(series: pd.Series, horizon: int = 3) -> dict[str, list[di
         raise ValueError("Please enter at least 24 months of data.")
 
     result: dict[str, list[dict[str, Any]]] = {}
-
-    ets_model = ExponentialSmoothing(series, trend="add", seasonal="add", seasonal_periods=12, initialization_method="estimated")
-    ets_fit = ets_model.fit(optimized=True)
-    ets_forecast = ets_fit.forecast(horizon)
-    result["Holt-Winters (ETS)"] = [
-        {"date": (series.index[-1] + pd.offsets.MonthBegin(1) * (idx + 1)).strftime("%Y-%m"), "value": round(float(value), 2)}
-        for idx, value in enumerate(ets_forecast.tolist())
-    ]
 
     sarima_model = SARIMAX(series, order=(1, 0, 1), seasonal_order=(1, 0, 1, 12), trend="c")
     sarima_fit = sarima_model.fit(disp=False)
