@@ -5,7 +5,12 @@ from typing import Any
 
 import pandas as pd
 import streamlit as st
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+try:
+    from statsmodels.tsa.holtwinters.model import ExponentialSmoothing
+except ImportError:  # pragma: no cover - fallback for older statsmodels versions
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 try:
