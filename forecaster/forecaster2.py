@@ -5,7 +5,11 @@ from typing import Dict, List, Tuple
 import altair as alt
 import pandas as pd
 import streamlit as st
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+try:
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+except ImportError:  # pragma: no cover - optional dependency for deployment
+    ExponentialSmoothing = None
 
 try:
     from prophet import Prophet
@@ -67,22 +71,25 @@ def generate_forecast(df: pd.DataFrame) -> Dict[str, List[Tuple[str, float]]]:
         monthly_index = pd.date_range(df["date"].min(), periods=len(values), freq="MS")
         monthly_series = pd.Series(values, index=monthly_index)
 
-        try:
-            model = ExponentialSmoothing(
-                monthly_series,
-                trend="add",
-                seasonal="add",
-                seasonal_periods=12,
-                initialization_method="estimated",
-            )
-            fitted_model = model.fit(optimized=True, use_brute=True)
-            forecast_values = fitted_model.forecast(3)
-            ets_predictions: List[Tuple[str, float]] = []
-            for offset, value in enumerate(forecast_values.tolist(), start=1):
-                next_month = df["date"].iloc[-1] + pd.DateOffset(months=offset)
-                ets_predictions.append((next_month.strftime("%Y-%m"), round(float(value), 2)))
-            predictions_by_method["Holt-Winters (ETS)"] = ets_predictions
-        except Exception:
+        if ExponentialSmoothing is not None:
+            try:
+                model = ExponentialSmoothing(
+                    monthly_series,
+                    trend="add",
+                    seasonal="add",
+                    seasonal_periods=12,
+                    initialization_method="estimated",
+                )
+                fitted_model = model.fit(optimized=True, use_brute=True)
+                forecast_values = fitted_model.forecast(3)
+                ets_predictions: List[Tuple[str, float]] = []
+                for offset, value in enumerate(forecast_values.tolist(), start=1):
+                    next_month = df["date"].iloc[-1] + pd.DateOffset(months=offset)
+                    ets_predictions.append((next_month.strftime("%Y-%m"), round(float(value), 2)))
+                predictions_by_method["Holt-Winters (ETS)"] = ets_predictions
+            except Exception:
+                predictions_by_method["Holt-Winters (ETS)"] = current_method_predictions
+        else:
             predictions_by_method["Holt-Winters (ETS)"] = current_method_predictions
 
         if Prophet is not None:
