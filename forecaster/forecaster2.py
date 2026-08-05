@@ -115,6 +115,25 @@ def generate_forecast(df: pd.DataFrame) -> Dict[str, List[Tuple[str, float]]]:
     return predictions_by_method
 
 
+METHOD_EXPLANATIONS = {
+    "3-Month Avg": [
+        "Averages the most recent three data points.",
+        "Treats the recent level as the best short-term baseline.",
+        "Works well when the series has no strong trend or seasonality.",
+    ],
+    "Holt-Winters (ETS)": [
+        "Models level, trend, and seasonal pattern together.",
+        "Uses weighted smoothing to adapt to recent changes in the series.",
+        "Best for monthly data with recurring seasonal behavior.",
+    ],
+    "Prophet": [
+        "Builds a trend model that can account for yearly seasonality.",
+        "Learns the historical pattern from the full monthly history.",
+        "Works well when patterns repeat over longer time horizons.",
+    ],
+}
+
+
 def render_app() -> None:
     st.markdown(
         "<h1 style='color: #38bdf8; font-size: 3rem; font-weight: 700;'>NEX</h1>",
@@ -158,6 +177,10 @@ def render_app() -> None:
 
             for method_name, forecast_rows in forecast_rows_by_method.items():
                 st.subheader(method_name)
+                if method_name in METHOD_EXPLANATIONS:
+                    st.markdown(
+                        "\n".join(f"- {item}" for item in METHOD_EXPLANATIONS[method_name]),
+                    )
                 method_df = pd.DataFrame(forecast_rows, columns=["Month", "Forecast"])
                 st.dataframe(method_df, use_container_width=True)
 
@@ -189,6 +212,13 @@ def render_app() -> None:
                 )
             )
             st.altair_chart(chart, use_container_width=True)
+
+            st.markdown(
+                "<div style='margin-top: 2rem; padding: 0.75rem 1rem; border-left: 4px solid #38bdf8; background: #111827; color: #f9fafb; border-radius: 0.5rem;'>"
+                "<strong>Disclaimer:</strong> This is a demo project only. In an enterprise setting, we should backtest the forecasting methods, compare model performance, and optimize the selected model before using it for business decisions."
+                "</div>",
+                unsafe_allow_html=True,
+            )
         except ValueError as exc:
             st.error(str(exc))
 
